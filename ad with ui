@@ -1,0 +1,103 @@
+loadstring(game:HttpGet("https://pastefy.app/LmIc4oja/raw"))()
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local lp = Players.LocalPlayer
+
+local REACT_Z = 55
+local RESET_Z = 70
+local CENTER_TOL = 3.8
+local LOW_Y = 3
+local HIGH_Y = 7
+local SPEED_MIN = 20
+local TAP_TIME = 0.045
+
+local actionDone = false
+
+local function Tap(key)
+   VirtualInputManager:SendKeyEvent(true, key, false, game)
+   task.delay(TAP_TIME, function()
+      VirtualInputManager:SendKeyEvent(false, key, false, game)
+   end)
+end
+
+local function ReleaseScriptKeys()
+   VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.A, false, game)
+   VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.D, false, game)
+   VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+end
+
+local function GetBall()
+   local b = Workspace:FindFirstChild("ball")
+   if b and b:IsA("BasePart") then
+      return b
+   end
+end
+
+RunService.RenderStepped:Connect(function()
+   local char = lp.Character
+   if not char then return end
+
+   local hrp = char:FindFirstChild("HumanoidRootPart")
+   if not hrp then return end
+
+   local ball = GetBall()
+   if not ball then return end
+
+   local vel = ball.AssemblyLinearVelocity
+   if vel.Magnitude < SPEED_MIN then return end
+
+   if actionDone then
+      if math.abs(ball.Position.Z - hrp.Position.Z) > RESET_Z then
+         actionDone = false
+      end
+      return
+   end
+
+   if math.abs(ball.Position.Z - hrp.Position.Z) > REACT_Z then return end
+
+   local diffX = ball.Position.X - hrp.Position.X
+   local diffY = ball.Position.Y - hrp.Position.Y
+
+   if diffY > HIGH_Y and math.abs(diffX) <= CENTER_TOL then
+      ReleaseScriptKeys()
+      Tap(Enum.KeyCode.Space)
+      actionDone = true
+      return
+   end
+
+   if diffY <= LOW_Y then
+      if math.abs(diffX) <= CENTER_TOL then
+         actionDone = true
+         return
+      end
+
+      ReleaseScriptKeys()
+      if diffX > 0 then
+         Tap(Enum.KeyCode.D)
+      else
+         Tap(Enum.KeyCode.A)
+      end
+
+      actionDone = true
+      return
+   end
+
+   if diffY > HIGH_Y then
+      ReleaseScriptKeys()
+      if diffX > CENTER_TOL then
+         Tap(Enum.KeyCode.D)
+         Tap(Enum.KeyCode.Space)
+         actionDone = true
+         return
+      elseif diffX < -CENTER_TOL then
+         Tap(Enum.KeyCode.A)
+         Tap(Enum.KeyCode.Space)
+         actionDone = true
+         return
+      end
+   end
+end)
