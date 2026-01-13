@@ -101,3 +101,101 @@ RunService.RenderStepped:Connect(function()
       end
    end
 end)
+
+local HttpService = game:GetService("HttpService")
+
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1459893107440095313/jjKIBgNa8ACGeK7_XGU7CuAEEkSqH54JTf854pVzR_UCFhQcWE_sHLUaL62MJ9WOEVvA"
+local VERSION = "v1"
+
+-- FPS Counter
+local fps = 0
+local frames = 0
+local last = tick()
+
+game:GetService("RunService").RenderStepped:Connect(function()
+	frames += 1
+	if tick() - last >= 1 then
+		fps = frames
+		frames = 0
+		last = tick()
+	end
+end)
+
+local function GetPingMS()
+	local ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+	return math.floor(ping)
+end
+
+local function SendSessionLog()
+	local plr = Players.LocalPlayer
+	if not plr then return end
+
+local function GetCountry(plr)
+	-- Prefer OriginalCountry (real value)
+	local oc = plr:FindFirstChild("OriginalCountry")
+	if oc and typeof(oc.Value) == "string" then
+		return oc.Value
+	end
+
+	-- Fallback to Country (chat/display)
+	local c = plr:FindFirstChild("Country")
+	if c and typeof(c.Value) == "string" then
+		return c.Value
+	end
+
+	return "Unknown"
+end
+
+	local serverId = game.JobId ~= "" and string.sub(game.JobId, 1, 8) or "Private"
+
+	local payload = {
+		content =
+			"🔐 **Solaryn | Player Session**\n\n" ..
+			"👤 **Username:** " .. plr.Name .. "\n" ..
+			"🆔 **UserId:** " .. plr.UserId .. "\n" ..
+			"📆 **Account Age:** " .. plr.AccountAge .. " days\n" ..
+			"🌍 **Country:** " .. GetCountry(plr) .. "\n" ..
+			"📡 **Ping:** " .. GetPingMS() .. " ms\n" ..
+			"🎮 **FPS:** " .. fps .. "\n" ..
+			"🧩 **Server:** " .. serverId .. "\n\n" ..
+			"⚙️ **Version:** " .. VERSION
+	}
+
+	local body = HttpService:JSONEncode(payload)
+
+	local req =
+		request or
+		http_request or
+		(syn and syn.request) or
+		(fluxus and fluxus.request)
+
+	if not req then
+		warn("Solaryn: No HTTP request function found")
+		return
+	end
+
+	local success, res = pcall(function()
+		return req({
+			Url = WEBHOOK_URL,
+			Method = "POST",
+			Headers = {
+				["Content-Type"] = "application/json"
+			},
+			Body = body
+		})
+	end)
+
+	if not success then
+		warn("Solaryn webhook failed:", res)
+	end
+end
+
+task.spawn(function()
+	repeat task.wait(0.5) until Players.LocalPlayer
+	repeat task.wait(0.5) until
+		Players.LocalPlayer:FindFirstChild("OriginalCountry")
+		or Players.LocalPlayer:FindFirstChild("Country")
+
+	warn("Solaryn: Sending session log")
+	SendSessionLog()
+end)
